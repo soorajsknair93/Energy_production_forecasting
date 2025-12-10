@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Energy Forecasting App</title>
+    <style>
+        body { font-family: Arial; background: #f6f6f6; padding: 20px; }
+        .container { background: white; padding: 20px; border-radius: 8px; width: 600px; margin: auto; }
+        h2 { text-align: center; }
+        input { width: 100%; padding: 10px; margin: 8px 0; }
+        button { width: 100%; padding: 12px; background: green; color: white; border: none; font-size: 18px; cursor: pointer; }
+        button:hover { background: darkgreen; }
+        img { width: 100%; margin-top: 20px; }
+        .btn-download { background: #007BFF; margin-top: 10px; }
+        .btn-download:hover { background: #0056b3; }
+        #loading { text-align:center; font-size:18px; display:none; margin-top:20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <h2>Renewable Energy Forecasting</h2>
+
+    <form id="forecastForm">
+        <label>Start Date:</label>
+        <input type="date" name="start_date" required>
+
+        <label>End Date:</label>
+        <input type="date" name="end_date" required>
+
+        <label>Anomaly Threshold (Z-Score):</label>
+        <input type="number" name="threshold" step="0.1" value="2.5" required>
+
+        <button type="submit">Generate Forecast</button>
+    </form>
+
+    <div id="loading">Processing... Please wait.</div>
+
+    <div id="results" style="display:none;">
+        <h3>Forecast Plot</h3>
+        <img id="forecast_img">
+
+        <h3>Anomaly Detection Plot</h3>
+        <img id="anomaly_img">
+
+        <a id="download_forecast" href=""><button class="btn-download">Download Forecast CSV</button></a>
+        <a id="download_anomaly" href=""><button class="btn-download">Download Anomaly CSV</button></a>
+    </div>
+
+</div>
+
+
+<script>
+document.getElementById("forecastForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+    document.getElementById("loading").style.display = "block";
+
+    // 1. Start async job
+    let startResponse = await fetch("/run_async", {
+        method: "POST",
+        body: formData
+    });
+    let job = await startResponse.json();
+    let job_id = job.job_id;
+
+    // 2. Poll job status
+    let status;
+    while (true) {
+        await new Promise(r => setTimeout(r, 1200));   // poll every 1.2 seconds
+        let r = await fetch(`/job_status/${job_id}`);
+        status = await r.json();
+
+        if (status.status === "completed") break;
+    }
+
+    // 3. Display results
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("results").style.display = "block";
+
+    document.getElementById("forecast_img").src = status.forecast_img + "?t=" + new Date().getTime();
+    document.getElementById("anomaly_img").src = status.anomaly_img + "?t=" + new Date().getTime();
+
+    document.getElementById("download_forecast").href = status.forecast_csv;
+    document.getElementById("download_anomaly").href = status.anomaly_csv;
+});
+</script>
+
+</body>
+</html>
